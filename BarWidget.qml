@@ -31,7 +31,7 @@ BarWidget {
   readonly property string clockFontFamily: String(setting("fontFamily", "") || "").trim() || (bar ? bar.fontFamily : Style.font.family)
   readonly property real clockFontSize: {
     var size = Number(setting("fontSize", 0))
-    return isFinite(size) && size >= 8 && size <= 48 ? size : Style.font.body
+    return isFinite(size) && size >= 8 && size <= 20 ? size : Style.font.body
   }
   readonly property string displayText: formatted(displayDate)
   readonly property var verticalLines: displayText.split("\n")

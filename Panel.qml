@@ -180,7 +180,7 @@ Panel {
     clockFormatField.text = widget ? String(widget.configuredFormat) : String(setting("format", "dddd HH:mm:ss"))
     clockFontField.text = String(setting("fontFamily", "") || "")
     var size = Number(setting("fontSize", 0))
-    clockSizeField.text = isFinite(size) && size >= 8 && size <= 48 ? String(size) : ""
+    clockSizeField.text = isFinite(size) && size >= 8 && size <= 20 ? String(size) : ""
     root.clockSettingsError = ""
     root.editingClock = true
     Qt.callLater(function() { clockFormatField.forceActiveFocus() })
@@ -194,8 +194,8 @@ Panel {
       root.clockSettingsError = "Enter a date/time format"
       return
     }
-    if (sizeText !== "" && (!isFinite(size) || size < 8 || size > 48)) {
-      root.clockSettingsError = "Font size must be 8–48 px"
+    if (sizeText !== "" && (!isFinite(size) || size < 8 || size > 20)) {
+      root.clockSettingsError = "Font size must be 8–20 px"
       return
     }
     persistSettings({ format: format, formatCustomized: true, fontFamily: clockFontField.text.trim(), fontSize: size })
@@ -899,7 +899,7 @@ Panel {
                 }
                 Text {
                   anchors.verticalCenter: parent.verticalCenter
-                  text: "px (8–48)"
+                  text: "px (8–20)"
                   color: Qt.darker(root.contentForeground, 1.4)
                   font.family: root.contentFontFamily
                   font.pixelSize: Style.font.bodySmall

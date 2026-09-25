@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "jeanc.clock",
   "name": "Seconds Clock",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "author": "Jean Carlos",
   "description": "Theme-aware bar clock with seconds and a calendar popup",
   "kinds": [
