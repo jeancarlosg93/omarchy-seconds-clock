@@ -11,7 +11,9 @@ omarchy restart shell
 
 No requiere la barra de píldoras ni el plugin de espacios de trabajo.
 
-Abre el calendario con clic izquierdo y pulsa el engranaje **CLOCK APPEARANCE** para ajustar el formato, la familia tipográfica y el tamaño de la letra (8–20 px, para caber en la barra). Los cambios se guardan en la entrada del reloj de `~/.config/omarchy/shell.json`. El formato utiliza los códigos de Qt, por ejemplo `ddd d MMM HH:mm:ss`; si eliges un formato personalizado, puedes incluir u omitir `ss`. Deja la fuente o el tamaño en blanco para seguir el valor del tema/sistema. El clic derecho sobre el reloj sigue recorriendo formatos predefinidos.
+Abre el calendario con clic izquierdo y pulsa el engranaje **CLOCK APPEARANCE** para elegir un formato rápido o editarlo libremente, buscar entre las fuentes instaladas, seleccionar un tamaño (8–20 px) y activar negrita o cursiva. La vista previa muestra el resultado antes de pulsar **Save changes**. Los cambios se guardan en la entrada del reloj de `~/.config/omarchy/shell.json` y sobreviven al reinicio del shell. El formato utiliza los códigos de Qt, por ejemplo `ddd d MMM HH:mm:ss`; si eliges uno personalizado, puedes incluir u omitir `ss`. Las opciones *System font* y *System size* siguen el tema del sistema. El clic derecho sobre el reloj sigue recorriendo formatos predefinidos.
+
+También puedes abrir directamente el panel de ajustes con `quickshell ipc -p /usr/share/omarchy/shell/shell.qml call omarchy.clock customize`.
 
 Para volver al reloj original: `omarchy plugin disable jeanc.clock`. Para actualizar: `omarchy plugin update jeanc.clock`.
 

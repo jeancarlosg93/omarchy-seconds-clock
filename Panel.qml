@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import qs.Commons
 import qs.Ui
 import "Model.js" as Model
@@ -16,7 +17,7 @@ import "Model.js" as Model
 // anchor against.
 Panel {
   id: root
-  moduleName: "omarchy.clock"
+  moduleName: hostWidget ? hostWidget.moduleName : "omarchy.clock"
   ipcTarget: "omarchy.clock"
   manageIpc: false
 
@@ -60,6 +61,30 @@ Panel {
   property bool editingLife: false
   property bool editingClock: false
   property string clockSettingsError: ""
+  property string clockFontChoice: ""
+  property int clockSizeChoice: 0
+  property string clockStyleChoice: "normal"
+  property var fontOptions: [{ value: "", label: "System font" }]
+  property var fontSizeOptions: {
+    var options = [{ value: "0", label: "System size" }]
+    for (var size = 8; size <= 20; size++) options.push({ value: String(size), label: size + " px" })
+    return options
+  }
+  property var formatOptions: [
+    { value: "custom", label: "Custom format" },
+    { value: "dddd HH:mm:ss", label: "Day + time" },
+    { value: "ddd d MMM HH:mm:ss", label: "Compact date + time" },
+    { value: "ddd d MMM yyyy", label: "Date only" },
+    { value: "HH:mm:ss", label: "Time only" },
+    { value: "ddd h:mm:ss AP", label: "12-hour time" },
+    { value: "yyyy-MM-dd HH:mm:ss", label: "ISO date + time" }
+  ]
+
+  function formatPresetFor(format) {
+    for (var i = 1; i < formatOptions.length; i++)
+      if (formatOptions[i].value === format) return format
+    return "custom"
+  }
 
   // Unset falls through to the locale's own first day, so a fresh install
   // starts out matching the rest of the desktop rather than a hardcoded
@@ -178,9 +203,10 @@ Panel {
     }
     var widget = root.hostWidget
     clockFormatField.text = widget ? String(widget.configuredFormat) : String(setting("format", "dddd HH:mm:ss"))
-    clockFontField.text = String(setting("fontFamily", "") || "")
+    root.clockFontChoice = String(setting("fontFamily", "") || "")
     var size = Number(setting("fontSize", 0))
-    clockSizeField.text = isFinite(size) && size >= 8 && size <= 20 ? String(size) : ""
+    root.clockSizeChoice = isFinite(size) && size >= 8 && size <= 20 ? size : 0
+    root.clockStyleChoice = String(setting("fontStyle", "normal") || "normal")
     root.clockSettingsError = ""
     root.editingClock = true
     Qt.callLater(function() { clockFormatField.forceActiveFocus() })
@@ -188,19 +214,22 @@ Panel {
 
   function saveClockSettings() {
     var format = clockFormatField.text.trim()
-    var sizeText = clockSizeField.text.trim()
-    var size = sizeText === "" ? 0 : Number(sizeText)
     if (format === "") {
       root.clockSettingsError = "Enter a date/time format"
       return
     }
-    if (sizeText !== "" && (!isFinite(size) || size < 8 || size > 20)) {
-      root.clockSettingsError = "Font size must be 8–20 px"
-      return
-    }
-    persistSettings({ format: format, formatCustomized: true, fontFamily: clockFontField.text.trim(), fontSize: size })
+    persistSettings({ format: format, formatCustomized: true,
+      fontFamily: root.clockFontChoice, fontSize: root.clockSizeChoice, fontStyle: root.clockStyleChoice })
     root.editingClock = false
     Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+  }
+
+  function toggleClockStyle(part) {
+    var bold = root.clockStyleChoice === "bold" || root.clockStyleChoice === "bold-italic"
+    var italic = root.clockStyleChoice === "italic" || root.clockStyleChoice === "bold-italic"
+    if (part === "bold") bold = !bold
+    if (part === "italic") italic = !italic
+    root.clockStyleChoice = bold && italic ? "bold-italic" : (bold ? "bold" : (italic ? "italic" : "normal"))
   }
 
   function startEditingLife() {
@@ -267,6 +296,28 @@ Panel {
       var followToday = root.viewingCurrentMonth
       root.today = clock.date
       if (followToday) root.goToToday()
+    }
+  }
+
+  Process {
+    id: installedFonts
+    command: ["fc-list", "--format=%{family[0]}\\n"]
+    running: true
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var names = text.split("\n")
+        var seen = ({})
+        var options = [{ value: "", label: "System font" }]
+        names.sort()
+        for (var i = 0; i < names.length; i++) {
+          var name = names[i].trim()
+          if (name === "" || seen[name]) continue
+          seen[name] = true
+          options.push({ value: name, label: name })
+        }
+        root.fontOptions = options
+      }
     }
   }
 
@@ -836,6 +887,29 @@ Panel {
                 Text {
                   width: Style.space(98)
                   anchors.verticalCenter: parent.verticalCenter
+                  text: "Quick format"
+                  color: root.contentForeground
+                  font.family: root.contentFontFamily
+                  font.pixelSize: Style.font.bodySmall
+                }
+                Dropdown {
+                  width: clockSettings.width - Style.space(106)
+                  showLabel: false
+                  value: root.formatPresetFor(clockFormatField.text)
+                  options: root.formatOptions
+                  foreground: root.contentForeground
+                  fontFamily: root.contentFontFamily
+                  onChanged: function(value) { if (value !== "custom") clockFormatField.text = value }
+                }
+              }
+
+              Row {
+                width: parent.width
+                spacing: Style.space(8)
+
+                Text {
+                  width: Style.space(98)
+                  anchors.verticalCenter: parent.verticalCenter
                   text: "Date / time"
                   color: root.contentForeground
                   font.family: root.contentFontFamily
@@ -847,7 +921,6 @@ Panel {
                   foreground: root.contentForeground
                   font.family: root.contentFontFamily
                   placeholderText: "dddd HH:mm:ss"
-                  onAccepted: root.saveClockSettings()
                   Keys.onEscapePressed: root.openClockSettings()
                 }
               }
@@ -864,14 +937,14 @@ Panel {
                   font.family: root.contentFontFamily
                   font.pixelSize: Style.font.bodySmall
                 }
-                TextField {
-                  id: clockFontField
+                SearchableDropdown {
                   width: clockSettings.width - Style.space(106)
+                  showLabel: false
+                  value: root.clockFontChoice
+                  options: root.fontOptions
                   foreground: root.contentForeground
-                  font.family: root.contentFontFamily
-                  placeholderText: "System font"
-                  onAccepted: root.saveClockSettings()
-                  Keys.onEscapePressed: root.openClockSettings()
+                  fontFamily: root.contentFontFamily
+                  onChanged: function(value) { root.clockFontChoice = value }
                 }
               }
 
@@ -887,22 +960,63 @@ Panel {
                   font.family: root.contentFontFamily
                   font.pixelSize: Style.font.bodySmall
                 }
-                TextField {
-                  id: clockSizeField
-                  width: Style.space(80)
+                Dropdown {
+                  width: Style.space(130)
+                  showLabel: false
+                  value: String(root.clockSizeChoice)
+                  options: root.fontSizeOptions
                   foreground: root.contentForeground
-                  font.family: root.contentFontFamily
-                  placeholderText: "System"
-                  inputMethodHints: Qt.ImhDigitsOnly
-                  onAccepted: root.saveClockSettings()
-                  Keys.onEscapePressed: root.openClockSettings()
+                  fontFamily: root.contentFontFamily
+                  onChanged: function(value) { root.clockSizeChoice = Number(value) }
                 }
+              }
+
+              Row {
+                width: parent.width
+                spacing: Style.space(8)
+
                 Text {
+                  width: Style.space(98)
                   anchors.verticalCenter: parent.verticalCenter
-                  text: "px (8–20)"
-                  color: Qt.darker(root.contentForeground, 1.4)
+                  text: "Style"
+                  color: root.contentForeground
                   font.family: root.contentFontFamily
                   font.pixelSize: Style.font.bodySmall
+                }
+                Button {
+                  text: "Bold"
+                  selected: root.clockStyleChoice === "bold" || root.clockStyleChoice === "bold-italic"
+                  bordered: true
+                  foreground: root.contentForeground
+                  fontFamily: root.contentFontFamily
+                  onClicked: root.toggleClockStyle("bold")
+                }
+                Button {
+                  text: "Italic"
+                  selected: root.clockStyleChoice === "italic" || root.clockStyleChoice === "bold-italic"
+                  bordered: true
+                  foreground: root.contentForeground
+                  fontFamily: root.contentFontFamily
+                  onClicked: root.toggleClockStyle("italic")
+                }
+              }
+
+              BorderSurface {
+                width: parent.width
+                height: Style.space(38)
+                radius: Style.cornerRadius
+                color: Color.background
+                borderSpec: Border.controlSpec("normal", root.contentForeground, Color.accent)
+
+                Text {
+                  anchors.centerIn: parent
+                  textFormat: Text.PlainText
+                  text: clockFormatField.text === "" ? "Preview" : Qt.formatDateTime(root.hostWidget ? root.hostWidget.displayDate : root.today, clockFormatField.text)
+                  color: root.contentForeground
+                  font.family: root.clockFontChoice || root.contentFontFamily
+                  font.pixelSize: root.clockSizeChoice || Style.font.body
+                  font.bold: root.clockStyleChoice === "bold" || root.clockStyleChoice === "bold-italic"
+                  font.italic: root.clockStyleChoice === "italic" || root.clockStyleChoice === "bold-italic"
                 }
               }
 
@@ -915,22 +1029,22 @@ Panel {
 
               Item {
                 width: parent.width
-                height: Style.space(28)
+                height: Style.space(42)
 
                 Row {
                   anchors.right: parent.right
+                  anchors.verticalCenter: parent.verticalCenter
                   spacing: Style.space(8)
 
-                  PanelActionButton {
-                    iconText: "󰅖"
-                    tooltipText: "Cancel"
+                  Button {
+                    text: "Cancel"
                     foreground: root.contentForeground
                     fontFamily: root.contentFontFamily
                     onClicked: root.openClockSettings()
                   }
-                  PanelActionButton {
-                    iconText: "󰄬"
-                    tooltipText: "Save clock settings"
+                  Button {
+                    text: "Save changes"
+                    bordered: true
                     foreground: root.contentForeground
                     fontFamily: root.contentFontFamily
                     onClicked: root.saveClockSettings()

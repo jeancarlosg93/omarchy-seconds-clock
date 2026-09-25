@@ -33,6 +33,7 @@ BarWidget {
     var size = Number(setting("fontSize", 0))
     return isFinite(size) && size >= 8 && size <= 20 ? size : Style.font.body
   }
+  readonly property string clockFontStyle: String(setting("fontStyle", "normal") || "normal")
   readonly property string displayText: formatted(displayDate)
   readonly property var verticalLines: displayText.split("\n")
 
@@ -139,18 +140,24 @@ BarWidget {
     function cycleFormat(): void { root.cycleFormat() }
     function toggleWeekStart(): void { root.toggleWeekStart() }
     function open(): void { root.open() }
+    function customize(): void {
+      root.open()
+      if (panelLoader.item && !panelLoader.item.editingClock) panelLoader.item.openClockSettings()
+    }
     function close(): void { root.close() }
     function show(): void { root.open() }
     function hide(): void { root.close() }
     function toggle(): void { root.togglePanel() }
   }
 
-  WidgetButton {
+  ClockButton {
     id: button
     anchors.fill: parent
     bar: root.bar
     fontFamily: root.clockFontFamily
     fontSize: root.clockFontSize
+    fontBold: root.clockFontStyle === "bold" || root.clockFontStyle === "bold-italic"
+    fontItalic: root.clockFontStyle === "italic" || root.clockFontStyle === "bold-italic"
     text: root.vertical ? "" : root.displayText
     labelVisible: !root.vertical
     hasVisualContent: root.vertical ? root.verticalLines.length > 0 : text !== ""
@@ -171,7 +178,7 @@ BarWidget {
       Repeater {
         model: root.verticalLines
 
-        OpticalGlyph {
+        ClockGlyph {
           required property string modelData
           width: button.width
           height: Style.bar.iconSlot
@@ -180,6 +187,8 @@ BarWidget {
           fontSize: modelData.length > 3
             ? button.fontSize * 0.9
             : button.fontSize
+          fontBold: button.fontBold
+          fontItalic: button.fontItalic
           color: button.foreground
         }
       }
