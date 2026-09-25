@@ -58,6 +58,8 @@ Panel {
   readonly property real lifeDone: Model.lifeProgress(age, lifeExpectancy)
   readonly property int lifeDonePercent: Model.lifeProgressPercent(age, lifeExpectancy)
   property bool editingLife: false
+  property bool editingClock: false
+  property string clockSettingsError: ""
 
   // Unset falls through to the locale's own first day, so a fresh install
   // starts out matching the rest of the desktop rather than a hardcoded
@@ -102,6 +104,7 @@ Panel {
     // Dismissing the panel mid-edit would otherwise leave the inputs up,
     // waiting behind a closed popup for the next time it opens.
     if (root.editingLife) root.cancelEditingLife()
+    root.editingClock = false
     root.controller.hide()
   }
 
@@ -166,6 +169,38 @@ Panel {
     var next = Model.normalizedWeekStart(day, root.weekStart)
     if (next === root.weekStart) return
     persistSettings({ weekStartDay: Model.weekStartSettingName(next) })
+  }
+
+  function openClockSettings() {
+    if (root.editingClock) {
+      root.editingClock = false
+      return
+    }
+    var widget = root.hostWidget
+    clockFormatField.text = widget ? String(widget.configuredFormat) : String(setting("format", "dddd HH:mm:ss"))
+    clockFontField.text = String(setting("fontFamily", "") || "")
+    var size = Number(setting("fontSize", 0))
+    clockSizeField.text = isFinite(size) && size >= 8 && size <= 48 ? String(size) : ""
+    root.clockSettingsError = ""
+    root.editingClock = true
+    Qt.callLater(function() { clockFormatField.forceActiveFocus() })
+  }
+
+  function saveClockSettings() {
+    var format = clockFormatField.text.trim()
+    var sizeText = clockSizeField.text.trim()
+    var size = sizeText === "" ? 0 : Number(sizeText)
+    if (format === "") {
+      root.clockSettingsError = "Enter a date/time format"
+      return
+    }
+    if (sizeText !== "" && (!isFinite(size) || size < 8 || size > 48)) {
+      root.clockSettingsError = "Font size must be 8–48 px"
+      return
+    }
+    persistSettings({ format: format, formatCustomized: true, fontFamily: clockFontField.text.trim(), fontSize: size })
+    root.editingClock = false
+    Qt.callLater(function() { keyCatcher.forceActiveFocus() })
   }
 
   function startEditingLife() {
@@ -249,7 +284,7 @@ Panel {
     PanelKeyCatcher {
       id: keyCatcher
       anchors.fill: parent
-      blocked: root.editingLife
+      blocked: root.editingLife || root.editingClock
       onMoveRequested: function(dx, dy) {
         if (dx !== 0) root.moveMonth(dx)
         if (dy !== 0) root.moveYear(dy)
@@ -752,6 +787,155 @@ Panel {
                 foreground: root.contentForeground
                 fontFamily: root.contentFontFamily
                 onClicked: root.moveMonth(1)
+              }
+            }
+          }
+
+          // Inline clock controls. These edit only the bar widget's settings;
+          // the calendar itself keeps following the system theme.
+          Column {
+            id: clockSettings
+            width: gridColumn.width
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Style.space(6)
+
+            Item {
+              width: parent.width
+              height: Style.space(28)
+
+              Text {
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                text: "CLOCK APPEARANCE"
+                color: Qt.darker(root.contentForeground, 1.4)
+                font.family: root.contentFontFamily
+                font.pixelSize: Style.font.bodySmall
+                font.letterSpacing: 1
+              }
+
+              PanelActionButton {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                iconText: "󰒓"
+                tooltipText: root.editingClock ? "Close clock settings" : "Customize clock"
+                foreground: root.contentForeground
+                fontFamily: root.contentFontFamily
+                onClicked: root.openClockSettings()
+              }
+            }
+
+            Column {
+              visible: root.editingClock
+              width: parent.width
+              spacing: Style.space(6)
+
+              Row {
+                width: parent.width
+                spacing: Style.space(8)
+
+                Text {
+                  width: Style.space(98)
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "Date / time"
+                  color: root.contentForeground
+                  font.family: root.contentFontFamily
+                  font.pixelSize: Style.font.bodySmall
+                }
+                TextField {
+                  id: clockFormatField
+                  width: clockSettings.width - Style.space(106)
+                  foreground: root.contentForeground
+                  font.family: root.contentFontFamily
+                  placeholderText: "dddd HH:mm:ss"
+                  onAccepted: root.saveClockSettings()
+                  Keys.onEscapePressed: root.openClockSettings()
+                }
+              }
+
+              Row {
+                width: parent.width
+                spacing: Style.space(8)
+
+                Text {
+                  width: Style.space(98)
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "Font family"
+                  color: root.contentForeground
+                  font.family: root.contentFontFamily
+                  font.pixelSize: Style.font.bodySmall
+                }
+                TextField {
+                  id: clockFontField
+                  width: clockSettings.width - Style.space(106)
+                  foreground: root.contentForeground
+                  font.family: root.contentFontFamily
+                  placeholderText: "System font"
+                  onAccepted: root.saveClockSettings()
+                  Keys.onEscapePressed: root.openClockSettings()
+                }
+              }
+
+              Row {
+                width: parent.width
+                spacing: Style.space(8)
+
+                Text {
+                  width: Style.space(98)
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "Font size"
+                  color: root.contentForeground
+                  font.family: root.contentFontFamily
+                  font.pixelSize: Style.font.bodySmall
+                }
+                TextField {
+                  id: clockSizeField
+                  width: Style.space(80)
+                  foreground: root.contentForeground
+                  font.family: root.contentFontFamily
+                  placeholderText: "System"
+                  inputMethodHints: Qt.ImhDigitsOnly
+                  onAccepted: root.saveClockSettings()
+                  Keys.onEscapePressed: root.openClockSettings()
+                }
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "px (8–48)"
+                  color: Qt.darker(root.contentForeground, 1.4)
+                  font.family: root.contentFontFamily
+                  font.pixelSize: Style.font.bodySmall
+                }
+              }
+
+              Text {
+                text: root.clockSettingsError !== "" ? root.clockSettingsError : "Qt format: ddd, dd, MMMM, yyyy, HH, mm, ss"
+                color: root.clockSettingsError !== "" ? Color.urgent : Qt.darker(root.contentForeground, 1.4)
+                font.family: root.contentFontFamily
+                font.pixelSize: Style.font.bodySmall
+              }
+
+              Item {
+                width: parent.width
+                height: Style.space(28)
+
+                Row {
+                  anchors.right: parent.right
+                  spacing: Style.space(8)
+
+                  PanelActionButton {
+                    iconText: "󰅖"
+                    tooltipText: "Cancel"
+                    foreground: root.contentForeground
+                    fontFamily: root.contentFontFamily
+                    onClicked: root.openClockSettings()
+                  }
+                  PanelActionButton {
+                    iconText: "󰄬"
+                    tooltipText: "Save clock settings"
+                    foreground: root.contentForeground
+                    fontFamily: root.contentFontFamily
+                    onClicked: root.saveClockSettings()
+                  }
+                }
               }
             }
           }

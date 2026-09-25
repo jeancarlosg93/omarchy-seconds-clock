@@ -17,8 +17,8 @@ BarWidget {
   property date displayDate: clock.date
 
   readonly property string configuredFormat: vertical
-    ? Model.secondsFormat(setting("verticalFormat", "HH\n—\nmm"), true)
-    : Model.secondsFormat(setting("format", "dddd HH:mm:ss"), false)
+    ? (setting("formatCustomized", false) ? setting("verticalFormat", "HH\n—\nmm\nss") : Model.secondsFormat(setting("verticalFormat", "HH\n—\nmm"), true))
+    : (setting("formatCustomized", false) ? setting("format", "dddd HH:mm:ss") : Model.secondsFormat(setting("format", "dddd HH:mm:ss"), false))
   readonly property string configuredAltFormat: vertical
     ? Model.secondsFormat(setting("verticalFormatAlt", "dd\nMMM\n'W'ww\n''yy"), true)
     : Model.secondsFormat(setting("formatAlt", "d MMMM 'W'ww yyyy"), false)
@@ -28,6 +28,11 @@ BarWidget {
   // A saved format without seconds is augmented for display. Cycling writes
   // the seconds-aware format back to shell.json for future sessions.
   readonly property string activeFormat: configuredFormat
+  readonly property string clockFontFamily: String(setting("fontFamily", "") || "").trim() || (bar ? bar.fontFamily : Style.font.family)
+  readonly property real clockFontSize: {
+    var size = Number(setting("fontSize", 0))
+    return isFinite(size) && size >= 8 && size <= 48 ? size : Style.font.body
+  }
   readonly property string displayText: formatted(displayDate)
   readonly property var verticalLines: displayText.split("\n")
 
@@ -44,6 +49,7 @@ BarWidget {
     var entry = { id: root.moduleName }
     for (var key in root.settings) if (key !== "id") entry[key] = root.settings[key]
     entry[vertical ? "verticalFormat" : "format"] = next
+    entry.formatCustomized = true
 
     // Applied locally first so the label changes on the click itself; the
     // shell.json write comes back through the bar as the same value.
@@ -143,6 +149,8 @@ BarWidget {
     id: button
     anchors.fill: parent
     bar: root.bar
+    fontFamily: root.clockFontFamily
+    fontSize: root.clockFontSize
     text: root.vertical ? "" : root.displayText
     labelVisible: !root.vertical
     hasVisualContent: root.vertical ? root.verticalLines.length > 0 : text !== ""
