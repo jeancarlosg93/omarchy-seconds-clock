@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "jeanc.clock",
+  "name": "Seconds Clock",
+  "version": "1.0.0",
+  "author": "Jean Carlos",
+  "description": "Theme-aware bar clock with seconds and a calendar popup",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Seconds Clock",
+    "description": "Clock with seconds and a calendar popup",
+    "category": "Time",
+    "allowMultiple": false
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.clock"
+  }
+}
